@@ -78,4 +78,5 @@ Warning
 ------
 - This script does not make automatic changes to the system, but provides information about suspicious services it detects. Be careful when evaluating the results!
 - The usage is entirely at the user's own risk! It is recommended to take a system backup before performing any action.
+
 **Remember, the Script is there to HELP you, DO NOT TRUST the results 100%!!!**
