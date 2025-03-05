@@ -1,6 +1,8 @@
 # SuperWindowsServiceScanner
 Windows Service and Security Log Control Script
 
+**Remember, the Script is there to HELP you, DO NOT TRUST the results 100%!!!**
+
 Description
 --------
 This script helps detect suspicious services in the system by checking the services and security logs running in the Windows operating system. It basically performs the following tasks:
