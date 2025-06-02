@@ -14,7 +14,7 @@ __        ___           _
 
 Write-Host "---------------------------------------`n"
 Write-Host "Developed by: myp" -ForegroundColor Green
-Write-Host "Version: 1.0" -ForegroundColor Red
+Write-Host "Version: 1.1" -ForegroundColor Red
 Write-Host "---------------------------------------`n"
 
 
