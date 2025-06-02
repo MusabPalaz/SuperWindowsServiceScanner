@@ -51,6 +51,53 @@ function LogMessage {
 LogMessage "Scanning started."
 
 # -- VirusTotal Fonksiyonları --
+# Helper function to resolve service executable path
+function Resolve-ServicePath {
+    param ($pathNameStr)
+
+    if ([string]::IsNullOrWhiteSpace($pathNameStr)) {
+        return $null
+    }
+
+    $executablePath = $null
+    # Regex to capture the executable path (quoted or unquoted) ending with .exe, .dll, or .sys
+    # Group 1: Quoted path
+    # Group 2: Unquoted path
+    $regex = '^"([^"].*?\.(?:exe|dll|sys))"|^([^\s]*?\.(?:exe|dll|sys))'
+    $match = $pathNameStr | Select-String -Pattern $regex
+
+    if ($match) {
+        $executablePath = if ($match.Matches[0].Groups[1].Success) { $match.Matches[0].Groups[1].Value } else { $match.Matches[0].Groups[2].Value }
+    } else {
+        # Fallback for paths without clear .exe/.dll/.sys extension or more complex cases
+        if ($pathNameStr.StartsWith('"')) {
+            $endQuoteIndex = $pathNameStr.IndexOf('"', 1)
+            if ($endQuoteIndex -gt 0) {
+                $executablePath = $pathNameStr.Substring(1, $endQuoteIndex - 1)
+            } else {
+                $executablePath = $pathNameStr.TrimStart('"').Split(' ')[0] # Malformed
+            }
+        } else {
+            $executablePath = $pathNameStr.Split(' ')[0]
+        }
+    }
+
+    if (-not ([string]::IsNullOrWhiteSpace($executablePath))) {
+        $expandedPath = [System.Environment]::ExpandEnvironmentVariables($executablePath)
+
+        if ($expandedPath -notmatch '^[a-zA-Z]:\' -and $expandedPath -notmatch '^\\') {
+            $systemRoot = [System.Environment]::ExpandEnvironmentVariables('%SystemRoot%')
+            $potentialPath = Join-Path -Path $systemRoot -ChildPath $expandedPath
+
+            if (Test-Path $potentialPath -PathType Leaf) {
+                return $potentialPath
+            }
+        }
+        return $expandedPath
+    }
+    return $null
+}
+
 # VirusTotal API anahtarını doğrulamak için fonksiyon
 function Validate-VirusTotal {
     param (
@@ -183,7 +230,8 @@ foreach ($service in $currentServices) {
             Name        = $service.Name
             StartupType = $service.StartMode
             LogOnAs     = $service.StartName
-            Path        = if ($service.PathName) { $service.PathName -replace '"', '' } else { "Bilinmiyor" }
+            $resolvedPath = Resolve-ServicePath -pathNameStr $service.PathName
+            Path        = if (-not [string]::IsNullOrWhiteSpace($resolvedPath)) { $resolvedPath } else { "Bilinmiyor" }
         }
     }
 }
@@ -241,11 +289,16 @@ if ($searchMethod -eq "Google") {
     } until ($virusTotalAPIKey -and (Validate-VirusTotal -apiKey $virusTotalAPIKey))
     
     foreach ($service in $suspiciousServices) {
-        if ($service.Path -and $service.Path -ne "Bilinmiyor" -and (Test-Path $service.Path -PathType Leaf)) {
-            Check-VirusTotal -filePath $service.Path -apiKey $virusTotalAPIKey
+        if ($service.Path -and $service.Path -ne "Bilinmiyor") {
+            if (Test-Path $service.Path -PathType Leaf) {
+                Check-VirusTotal -filePath $service.Path -apiKey $virusTotalAPIKey
+            } else {
+                Write-Host "⚠ Resolved path for $($service.Name) ('$($service.Path)') is not a valid file or cannot be accessed. Skipping scan." -ForegroundColor Yellow
+                LogMessage "Resolved path for $($service.Name) ('$($service.Path)') is not a valid file (Test-Path failed or access denied). Skipping scan."
+            }
         } else {
-            Write-Host "⚠ No valid EXE path found for $($service.Name), skipping scan." -ForegroundColor Yellow
-            LogMessage "⚠ No valid EXE path found for $($service.Name), skipping scan."
+            Write-Host "⚠ No valid EXE path found or resolved for $($service.Name), skipping VirusTotal scan." -ForegroundColor Yellow
+            LogMessage "No valid EXE path found or resolved for $($service.Name), skipping VirusTotal scan."
         }
     }
 }
