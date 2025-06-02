@@ -1,4 +1,4 @@
-﻿Write-Host "---------------------------------------"
+Write-Host "---------------------------------------"
 Write-Host "
 Super
 __        ___           _                                                 
@@ -85,7 +85,8 @@ function Resolve-ServicePath {
     if (-not ([string]::IsNullOrWhiteSpace($executablePath))) {
         $expandedPath = [System.Environment]::ExpandEnvironmentVariables($executablePath)
 
-        if ($expandedPath -notmatch '^[a-zA-Z]:\' -and $expandedPath -notmatch '^\\') {
+        # Satır 88 için düzeltme:
+            if ($expandedPath -notmatch '^[a-zA-Z]:\\' -and $expandedPath -notmatch '^\\\\') {
             $systemRoot = [System.Environment]::ExpandEnvironmentVariables('%SystemRoot%')
             $potentialPath = Join-Path -Path $systemRoot -ChildPath $expandedPath
 
@@ -226,13 +227,23 @@ foreach ($service in $currentServices) {
         Write-Host "❌ Suspicious Service: $($service.Name)" -ForegroundColor Red
         LogMessage "Suspicious Service Found: $($service.Name)"
 
-        $suspiciousServices += [PSCustomObject]@{
-            Name        = $service.Name
-            StartupType = $service.StartMode
-            LogOnAs     = $service.StartName
-            $resolvedPath = Resolve-ServicePath -pathNameStr $service.PathName
-            Path        = if (-not [string]::IsNullOrWhiteSpace($resolvedPath)) { $resolvedPath } else { "Bilinmiyor" }
-        }
+        # foreach ($service in $currentServices) döngüsü içinde:
+# ...
+if ($normalizedServiceName -notin $defaultServices) {
+    Write-Host "❌ Suspicious Service: $($service.Name)" -ForegroundColor Red
+    LogMessage "Suspicious Service Found: $($service.Name)"
+
+    # Resolve-ServicePath fonksiyonunu çağır ve sonucu bir değişkende sakla
+    $resolvedPathValue = Resolve-ServicePath -pathNameStr $service.PathName
+
+    $suspiciousServices += [PSCustomObject]@{
+        Name        = $service.Name
+        StartupType = $service.StartMode
+        LogOnAs     = $service.StartName
+        Path        = if (-not [string]::IsNullOrWhiteSpace($resolvedPathValue)) { $resolvedPathValue } else { "Bilinmiyor" }
+    }
+}
+# ...
     }
 }
 
